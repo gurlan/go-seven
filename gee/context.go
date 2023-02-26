@@ -22,6 +22,9 @@ type Context struct {
 	// middleware
 	handlers []HandlerFunc
 	index    int
+
+	// engine pointer
+	engine *Engine
 }
 
 func newContext(w http.ResponseWriter, req *http.Request) *Context {
@@ -76,14 +79,22 @@ func (c *Context) JSON(code int, obj interface{}) {
 		http.Error(c.Writer, err.Error(), 500)
 	}
 }
+func (c *Context) Fail(code int, err string) {
+	c.index = len(c.handlers)
+	c.JSON(code, H{"message": err})
+}
 
 func (c *Context) Data(code int, data []byte) {
 	c.Status(code)
 	c.Writer.Write(data)
 }
 
-func (c *Context) HTML(code int, html string) {
+// HTML template render
+// refer https://golang.org/pkg/html/template/
+func (c *Context) HTML(code int, name string, data interface{}) {
 	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
-	c.Writer.Write([]byte(html))
+	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.Fail(500, err.Error())
+	}
 }
